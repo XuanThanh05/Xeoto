@@ -60,7 +60,7 @@
             <button onclick="TurnOnOffLight()">Bật/tắt đèn</button>
             <button onclick="TurnOnOffSun()">Bật/tắt Ánh sáng</button>
 
-            <button onclick="resetView()">Xem toàn bộ xe</button>
+            <button onclick="changeView()">Đổi góc nhìn</button>
         </div>
         <div id="info">
             <p>Kéo chuột để xoay | Cuộn chuột để zoom </p>
@@ -76,6 +76,9 @@
         // Biến toàn cục theo dõi trạng thái bật/tắt ánh sáng
         let sunon = true; // Đầu tiên ánh sáng bật
         let ambientLight, directionalLight; 
+        //góc nhìn
+        let isThirdPerson = true;
+
 
         function init() {
             // Tạo scene
@@ -84,7 +87,7 @@
 
             // Tạo camera
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(8, 6, 8);
+            camera.position.set(0, 8, -10);//góc nhìn thứ3
             camera.lookAt(0, 0, 0);
 
             // Tạo renderer
@@ -116,6 +119,7 @@
 
             // Tạo xe
             createCar();
+            car.add(camera); // gắn camera vào xe
 
             // Tạo hệ trục tọa độ với chiều dài mỗi trục là 5 đơn vị
             const axesHelper = new THREE.AxesHelper(5);
@@ -125,13 +129,25 @@
             // const helperRight = new THREE.SpotLightHelper(frontLightRight);
             // scene.add(helperLeft);
             // scene.add(helperRight);
-
+            
+            // const pointLightHelper = new THREE.PointLightHelper(mornitorLight, 1); // 1 là kích thước sphere
+            // scene.add(pointLightHelper);
             // Thêm event listeners
             addEventListeners();
 
             // Bắt đầu animation loop
             animate();
         }
+        function setFirstPersonView() {
+            camera.position.set(0.5, 3.5, 0.5);       
+            camera.lookAt(0.5, 3, 5);             
+        }
+
+        function setThirdPersonView() {
+            camera.position.set(0, 8, -10);        
+            camera.lookAt(0, 0, 0);               
+        }
+
 
         function createCar() {
             car = new THREE.Group();
@@ -342,6 +358,7 @@
     let rearLightLeft, rearLightRight;
     let lightsOn = false;
     let coneLeft, coneRight;
+    let mornitorLight;
 
     function createHeadlights() {
         const headlightGeometry = new THREE.BoxGeometry(0.6, 0.4, 0.1);
@@ -412,6 +429,10 @@
         rearLightRight.position.set(1.2, 1.5, -7.9);
         car.add(rearLightRight);
 
+        // Thêm đèn từ car mornitor
+        mornitorLight = new THREE.PointLight(0xffffcc, 0, 5);
+        mornitorLight.position.set(-0.1, 2.3, 2.0);
+        car.add(mornitorLight);
     }
 
 
@@ -507,11 +528,25 @@
         steeringGroup.rotation.x = -Math.PI / 3;
         car.add(steeringGroup); // hoặc scene.add nếu muốn test riêng
         // Bảng điều khiển
+
         const MornitorGeometry = new THREE.BoxGeometry(1.1, 0.6, 0.1);
-        const Mornitor = new THREE.Mesh(MornitorGeometry, material);
-        Mornitor.position.set(-0.1, 2.2, 2.5); // 
-        Mornitor.rotation.x = Math.PI / 4;
-        car.add(Mornitor);
+        const textureLoader = new THREE.TextureLoader();
+        textureLoader.load('car_monitor.jpg', function(plateTexture) {
+            // Tạo 6 mặt vật liệu, chỉ mặt trước là có texture
+            const materials = [
+                new THREE.MeshPhongMaterial({ color: 0x000000 }), // Right
+                new THREE.MeshPhongMaterial({ color: 0x000000 }), // Left
+                new THREE.MeshPhongMaterial({ color: 0x000000 }), // Top
+                new THREE.MeshPhongMaterial({ color: 0x000000  }), // Bottom
+                new THREE.MeshPhongMaterial({ color: 0x000000 }), // Front – biển số
+                new THREE.MeshPhongMaterial({ map: plateTexture })  // Back
+            ];
+
+            const Mornitor = new THREE.Mesh(MornitorGeometry, materials);
+            Mornitor.position.set(-0.1, 2.2, 2.5); 
+            Mornitor.rotation.x = Math.PI / 4;
+            car.add(Mornitor);
+        });
 
 }       
 
@@ -570,9 +605,13 @@
             });
         }
 
-        function resetView() {
-            camera.position.set(8, 6, 8);
-            camera.lookAt(0, 0, 0);
+        function changeView() {
+            if (isThirdPerson) {
+                setFirstPersonView();
+            } else {
+                setThirdPersonView();
+            }
+            isThirdPerson = !isThirdPerson;
         }
 
         function addEventListeners() {
@@ -647,6 +686,8 @@
             // Ẩn/Hiện cone ánh sáng
             coneLeft.visible = lightsOn;
             coneRight.visible = lightsOn;
+            //ánh sáng từ car mornitor
+            mornitorLight.intensity = lightsOn ? 1.5 : 0;
         }
 
         function TurnOnOffSun() {
