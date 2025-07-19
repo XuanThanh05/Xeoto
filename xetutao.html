@@ -53,8 +53,13 @@
     <div id="container">
         <div id="controls">
             <h3>Điều khiển xe</h3>
-            <button onclick="toggleRoof()">Mở/Đóng trần xe</button>
-            <button onclick="toggleDoors()">Mở/Đóng cửa xe</button>
+            <button onclick="toggleDoorUpperLeft()">Mở/Đóng cửa xe trên trái</button>
+            <button onclick="toggleDoorUpperRight()">Mở/Đóng cửa xe trên phải</button>
+            <button onclick="toggleDoorLowerLeft()">Mở/Đóng cửa xe dưới trái</button>
+            <button onclick="toggleDoorLowerRight()">Mở/Đóng cửa xe dưới phải</button>
+            <button onclick="TurnOnOffLight()">Bật/tắt đèn</button>
+            <button onclick="TurnOnOffSun()">Bật/tắt Ánh sáng</button>
+
             <button onclick="resetView()">Xem toàn bộ xe</button>
         </div>
         <div id="info">
@@ -64,10 +69,13 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
-        let scene, camera, renderer, car, roof, doors = [], wheels = [];
+        let scene, camera, renderer, car;
         let roofOpen = false, doorsOpen = false;
         let mouseX = 0, mouseY = 0;
         let isMouseDown = false;
+        // Biến toàn cục theo dõi trạng thái bật/tắt ánh sáng
+        let sunon = true; // Đầu tiên ánh sáng bật
+        let ambientLight, directionalLight; 
 
         function init() {
             // Tạo scene
@@ -86,14 +94,14 @@
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             document.getElementById('container').appendChild(renderer.domElement);
 
-            // Tạo ánh sáng
-            const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+            //Tạo ánh sáng
+            ambientLight = new THREE.AmbientLight(0x404040, 0.6);
             scene.add(ambientLight);
 
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-            directionalLight.position.set(8,8,10);
+            directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(8, 8, 10);
             directionalLight.castShadow = true;
-            directionalLight.shadow.mapSize.width = 1024
+            directionalLight.shadow.mapSize.width = 1024;
             directionalLight.shadow.mapSize.height = 1024;
             scene.add(directionalLight);
 
@@ -108,11 +116,16 @@
 
             // Tạo xe
             createCar();
-            // Tạo hệ trục tọa độ với chiều dài mỗi trục là 5 đơn vị
-const axesHelper = new THREE.AxesHelper(5);
 
-// Thêm vào scene
-scene.add(axesHelper);
+            // Tạo hệ trục tọa độ với chiều dài mỗi trục là 5 đơn vị
+            const axesHelper = new THREE.AxesHelper(5);
+            scene.add(axesHelper);
+
+            // const helperLeft = new THREE.SpotLightHelper(frontLightLeft);
+            // const helperRight = new THREE.SpotLightHelper(frontLightRight);
+            // scene.add(helperLeft);
+            // scene.add(helperRight);
+
             // Thêm event listeners
             addEventListeners();
 
@@ -170,66 +183,81 @@ scene.add(axesHelper);
         }
         function createkhungxe(){
              const khungxeGroup = new THREE.Group();
+             //thanh chéo đầu xe
+
+             //thanh giữa xe
+
+             //thanh đuôi xe
         }
         function createDoors() {
             const doorGroup = new THREE.Group();
 
             // Vật liệu phần thân cửa
             const doorMaterial = new THREE.MeshPhongMaterial({ color: 0x0066cc });
+            const thanhdoorMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff });
 
-            // Vật liệu phần kính cửa (trong suốt nhẹ)
-            const glassMaterial = new THREE.MeshPhongMaterial({
-                color: 0x99ccff,
-                transparent: true,
-                opacity: 0.6
-            });
+            // // Vật liệu phần kính cửa (trong suốt nhẹ)
+            // const glassMaterial = new THREE.MeshPhongMaterial({
+            //     color: 0x99ccff,
+            //     transparent: true,
+            //     opacity: 0.2
+            // });
 
             // Kích thước phần dưới và phần trên
-            const lowerDoorGeometry = new THREE.BoxGeometry(0.1, 1.5, 1.6); // thân dưới
-            const upperDoorGeometry = new THREE.BoxGeometry(0.1, 1.3, 1.6); // kính trên
-
+            const lowerDoorGeometry = new THREE.BoxGeometry(0.1, 1.5, 2.4); // thân dưới
+            // const upperDoorGeometry = new THREE.BoxGeometry(0.1, 1.3, 1.6); // kính trên
+            const lowerDoorGeometry2 = new THREE.BoxGeometry(0.1, 1.5, 2.4);
+            const thanhdoorGeometry = new THREE.BoxGeometry(0.1, 1.5, 0.1);
             // === Cửa trái trên ===
             // Thân dưới
             const leftLowerDoor = new THREE.Mesh(lowerDoorGeometry, doorMaterial);
-            leftLowerDoor.position.set(-2.4, 1.75, 1.1);
+            leftLowerDoor.position.set(-2.4, 1.75, 1.5);
             leftLowerDoor.castShadow = true;
-            doorGroup.add(leftLowerDoor);
+            const thanhleftLowerDoor = new THREE.Mesh(thanhdoorGeometry, thanhdoorMaterial);
+            thanhleftLowerDoor.position.set(-2.4, 1.75, 2.75);
+            doorGroup.add(leftLowerDoor,thanhleftLowerDoor);
 
-            // Kính trên
-            const leftUpperDoor = new THREE.Mesh(upperDoorGeometry, glassMaterial);
-            leftUpperDoor.position.set(-2.4, 3.15, 1.1);
-            doorGroup.add(leftUpperDoor);
+            // // Kính trên
+            // const leftUpperDoor = new THREE.Mesh(upperDoorGeometry, glassMaterial);
+            // leftUpperDoor.position.set(-2.4, 3.15, 1.1);
+            // doorGroup.add(leftUpperDoor);
 
             // === Cửa phải trên===
             const rightLowerDoor = new THREE.Mesh(lowerDoorGeometry, doorMaterial);
-            rightLowerDoor.position.set(2.4, 1.75, 1.1);
+            rightLowerDoor.position.set(2.4, 1.75,1.5);
             rightLowerDoor.castShadow = true;
-            doorGroup.add(rightLowerDoor);
+            const thanhrightLowerDoor = new THREE.Mesh(thanhdoorGeometry, thanhdoorMaterial);
+            thanhrightLowerDoor.position.set(2.4, 1.75, 2.75);
+            doorGroup.add(rightLowerDoor,thanhrightLowerDoor);
 
-            const rightUpperDoor = new THREE.Mesh(upperDoorGeometry, glassMaterial);
-            rightUpperDoor.position.set(2.4, 3.15, 1.1);
-            doorGroup.add(rightUpperDoor);
+            // const rightUpperDoor = new THREE.Mesh(upperDoorGeometry, glassMaterial);
+            // rightUpperDoor.position.set(2.4, 3.15, 1.1);
+            // doorGroup.add(rightUpperDoor);
             // === Cửa trái dưới ===
             // Thân dưới
-            const leftLowerDoor2 = new THREE.Mesh(lowerDoorGeometry, doorMaterial);
-            leftLowerDoor2.position.set(-2.4, 1.75, -1.1);
+            const leftLowerDoor2 = new THREE.Mesh(lowerDoorGeometry2, doorMaterial);
+            leftLowerDoor2.position.set(-2.4, 1.75, -1.0);
             leftLowerDoor2.castShadow = true;
-            doorGroup.add(leftLowerDoor2);
+            const thanhleft2LowerDoor = new THREE.Mesh(thanhdoorGeometry, thanhdoorMaterial);
+            thanhleft2LowerDoor.position.set(-2.4, 1.75, 0.25);
+            doorGroup.add(leftLowerDoor2,thanhleft2LowerDoor);
 
-            // Kính trên
-            const leftUpperDoor2 = new THREE.Mesh(upperDoorGeometry, glassMaterial);
-            leftUpperDoor2.position.set(-2.4, 3.15, -1.1);
-            doorGroup.add(leftUpperDoor2);
+            // // Kính trên
+            // const leftUpperDoor2 = new THREE.Mesh(upperDoorGeometry, glassMaterial);
+            // leftUpperDoor2.position.set(-2.4, 3.15, -1.1);
+            // doorGroup.add(leftUpperDoor2);
 
             // === Cửa phải dưới===
-            const rightLowerDoor2 = new THREE.Mesh(lowerDoorGeometry, doorMaterial);
-            rightLowerDoor2.position.set(2.4, 1.75, -1.1);
+            const rightLowerDoor2 = new THREE.Mesh(lowerDoorGeometry2, doorMaterial);
+            rightLowerDoor2.position.set(2.4, 1.75, -1.0);
             rightLowerDoor2.castShadow = true;
-            doorGroup.add(rightLowerDoor2);
+            const thanhright2LowerDoor = new THREE.Mesh(thanhdoorGeometry, thanhdoorMaterial);
+            thanhright2LowerDoor.position.set(2.4, 1.75, 0.25);
+            doorGroup.add(rightLowerDoor2,thanhright2LowerDoor);
 
-            const rightUpperDoor2 = new THREE.Mesh(upperDoorGeometry, glassMaterial);
-            rightUpperDoor2.position.set(2.4, 3.15, -1.1);
-            doorGroup.add(rightUpperDoor2);
+            // const rightUpperDoor2 = new THREE.Mesh(upperDoorGeometry, glassMaterial);
+            // rightUpperDoor2.position.set(2.4, 3.15, -1.1);
+            // doorGroup.add(rightUpperDoor2);
 
             car.add(doorGroup); // hoặc scene.add nếu muốn tách riêng
         }
@@ -291,32 +319,101 @@ scene.add(axesHelper);
             // Gương chiếu hậu
 
     }
+    function createVolumetricBeam(x, y, z, color = 0xffffcc) {
+        const coneGeometry = new THREE.ConeGeometry(7, 16, 64, 1, true); // hình nón mở
+        const coneMaterial = new THREE.MeshBasicMaterial({
+            color: color,
+            transparent: true,
+            opacity: 0.2,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+            blending: THREE.AdditiveBlending
+        });
+
+        const cone = new THREE.Mesh(coneGeometry, coneMaterial);
+        cone.position.set(x, y, z ); // dịch ra trước mặt
+        cone.rotation.x = -Math.PI / 2; // xoay theo trục Z
+
+        car.add(cone);  // hoặc scene.add nếu không gắn theo xe
+        return cone;
+    }
+
+    let frontLightLeft, frontLightRight, frontPointLightLeft, frontPointLightRight;
+    let rearLightLeft, rearLightRight;
+    let lightsOn = false;
+    let coneLeft, coneRight;
 
     function createHeadlights() {
-            const headlightGeometry = new THREE.BoxGeometry(0.6, 0.4, 0.1);
-            const headlightMaterial = new THREE.MeshPhongMaterial({ color: 0xffff00 }); // vàng
+        const headlightGeometry = new THREE.BoxGeometry(0.6, 0.4, 0.1);
+        const headlightMaterial = new THREE.MeshPhongMaterial({ color: 0xffff00 });
 
-            const taillightGeometry = new THREE.BoxGeometry(0.3, 0.3, 0.1);
-            const taillightMaterial = new THREE.MeshPhongMaterial({ color: 0xff0000 }); // đỏ
+        const taillightGeometry = new THREE.BoxGeometry(0.3, 0.3, 0.1);
+        const taillightMaterial = new THREE.MeshPhongMaterial({ color: 0xff0000 });
 
-            // === Đèn pha (phía trước) ===
-            const headlightLeft = new THREE.Mesh(headlightGeometry, headlightMaterial);
-            headlightLeft.position.set(-1.2, 1.5, 6.6); // chỉnh tùy vào chiều dài xe bạn
-            car.add(headlightLeft);
+        //vật cản phía trước
+        const vatcan = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 0.1), headlightMaterial);
+        vatcan.position.set(0, 0, 20);
+        scene.add(vatcan);
+        // === Đèn pha (phía trước) ===
+        const headlightLeft = new THREE.Mesh(headlightGeometry, headlightMaterial);
+        headlightLeft.position.set(-1.2, 1.5, 6.4);
+        car.add(headlightLeft);
 
-            const headlightRight = new THREE.Mesh(headlightGeometry, headlightMaterial);
-            headlightRight.position.set(1.2, 1.5, 6.6);
-            car.add(headlightRight);
+        const headlightRight = new THREE.Mesh(headlightGeometry, headlightMaterial);
+        headlightRight.position.set(1.2, 1.5, 6.4);
+        car.add(headlightRight);
 
-            // === Đèn hậu (phía sau) ===
-            const taillightLeft = new THREE.Mesh(taillightGeometry, taillightMaterial);
-            taillightLeft.position.set(-1.2, 1.5, -5.8);
-            car.add(taillightLeft);
+        // Thêm đèn thật (ánh sáng vàng)
+        frontLightLeft = new THREE.SpotLight(0xffffcc, 0, 15, Math.PI / 7, 0.3);
+        frontLightLeft.position.set(-1.2, 1.5, 6.0);
+        frontLightLeft.target.position.set(-1.2, 1.5, 20); // chiếu xa hơn
+        car.add(frontLightLeft);
+        car.add(frontLightLeft.target);
+        frontLightLeft.castShadow = true;
+        frontLightLeft.target.updateMatrixWorld();
 
-            const taillightRight = new THREE.Mesh(taillightGeometry, taillightMaterial);
-            taillightRight.position.set(1.2, 1.5, -5.8);
-            car.add(taillightRight);
+        frontLightRight = new THREE.SpotLight(0xffffcc, 0, 15, Math.PI / 7, 0.3);
+        frontLightRight.position.set(1.2, 1.5, 6.0);
+        frontLightRight.target.position.set(1.2, 1.5, 20);
+        car.add(frontLightRight);
+        car.add(frontLightRight.target); 
+        frontLightRight.castShadow = true;
+        frontLightRight.target.updateMatrixWorld();
+        // Thêm đèn phía trước phát sáng
+        frontPointLightLeft = new THREE.PointLight(0xffffcc, 0, 5);
+        frontPointLightLeft.position.set(-1.2, 1.5, 6.5);
+        car.add(frontPointLightLeft);
+
+        frontPointLightRight = new THREE.PointLight(0xffffcc, 0, 5);
+        frontPointLightRight.position.set(1.2, 1.5, 6.5);
+        car.add(frontPointLightRight);
+        // Hình nón giả đèn
+        coneLeft = createVolumetricBeam(-1.2, 1.5, 13);  // trái
+        coneRight = createVolumetricBeam(1.2, 1.5, 13);   // phải
+        coneLeft.visible = false;
+        coneRight.visible = false;
+        
+
+        // === Đèn hậu (phía sau) ===
+        const taillightLeft = new THREE.Mesh(taillightGeometry, taillightMaterial);
+        taillightLeft.position.set(-1.2, 1.5, -5.8);
+        car.add(taillightLeft);
+
+        const taillightRight = new THREE.Mesh(taillightGeometry, taillightMaterial);
+        taillightRight.position.set(1.2, 1.5, -5.8);
+        car.add(taillightRight);
+
+        // Thêm đèn đỏ phía sau phát sáng
+        rearLightLeft = new THREE.PointLight(0xff0000, 0, 5);
+        rearLightLeft.position.set(-1.2, 1.5, -7.9);
+        car.add(rearLightLeft);
+
+        rearLightRight = new THREE.PointLight(0xff0000, 0, 5);
+        rearLightRight.position.set(1.2, 1.5, -7.9);
+        car.add(rearLightRight);
+
     }
+
 
 
    function createInterior() {
@@ -421,17 +518,56 @@ scene.add(axesHelper);
         function createWindshield() {
             
             // Kính chắn gió trước
+            const windshieldgroup = new THREE.Group();
+            const doorMaterial = new THREE.MeshPhongMaterial({ color: 0x0066cc });
 
-            // Kính chắn gió sau
+            // Vật liệu phần kính cửa (trong suốt nhẹ)
+            const glassMaterial = new THREE.MeshPhongMaterial({
+                color: 0x99ccff,
+                transparent: true,
+                opacity: 0.2
+            });
 
-            // Kính bên
+            // Kích thước phần dưới và phần trên
+            const wsGeometry = new THREE.BoxGeometry(4.5, 2, 0.1); // thân dưới
+            const k1Geometry = new THREE.BoxGeometry(0.1, 2, 0.1); // thân dưới
 
+
+
+
+            const windshield = new THREE.Mesh(wsGeometry, glassMaterial);
+            windshield.position.set(0, 0, 0);
+            windshield.castShadow = true;
+
+
+            const k1 = new THREE.Mesh(k1Geometry, doorMaterial)
+            const k2 = new THREE.Mesh(k1Geometry, doorMaterial)
+            k1.position.set(2.25,0,0);
+            k2.position.set(-2.25,0,0);
+
+            windshieldgroup.add( windshield, k1, k2);
+            windshieldgroup.position.set(0,3.1,2.8);
+            windshieldgroup.rotation.x = -Math.PI/4;
+            car.add(windshieldgroup);
         }
-        function createLicencePlate(){
-            const LicencePlateGeometry = new THREE.BoxGeometry(1.7, 0.6, 0.1);
-            const LicencePlate = new THREE.Mesh(LicencePlateGeometry, new THREE.MeshPhongMaterial({ color: 0xffffff }));
-            LicencePlate.position.set(0, 1.5, -5.8); 
-            car.add(LicencePlate);
+        function createLicencePlate() {
+            const licencePlateGeometry = new THREE.BoxGeometry(1.7, 0.6, 0.1);
+            const textureLoader = new THREE.TextureLoader();
+            textureLoader.load('licence_plate.jpg', function(plateTexture) {
+                // Tạo 6 mặt vật liệu, chỉ mặt trước là có texture
+                const materials = [
+                    new THREE.MeshPhongMaterial({ color: 0x000000 }), // Right
+                    new THREE.MeshPhongMaterial({ color: 0x000000 }), // Left
+                    new THREE.MeshPhongMaterial({ color: 0x000000 }), // Top
+                    new THREE.MeshPhongMaterial({ color: 0x000000  }), // Bottom
+                    new THREE.MeshPhongMaterial({ color: 0x000000 }), // Front – biển số
+                    new THREE.MeshPhongMaterial({ map: plateTexture })  // Back
+                ];
+
+                const licencePlate = new THREE.Mesh(licencePlateGeometry, materials);
+                licencePlate.position.set(0, 1.5, -5.8); 
+                car.add(licencePlate);
+            });
         }
 
         function resetView() {
@@ -498,6 +634,32 @@ scene.add(axesHelper);
             
             
             renderer.render(scene, camera);
+        }
+        function TurnOnOffLight() {
+            lightsOn = !lightsOn;
+
+            frontLightLeft.intensity = lightsOn ? 10 : 0;
+            frontLightRight.intensity = lightsOn ? 10 : 0;
+            frontPointLightLeft.intensity=lightsOn? 5 : 0;
+            frontPointLightRight.intensity=lightsOn? 5 : 0;
+            rearLightLeft.intensity = lightsOn ? 1.5 : 0;
+            rearLightRight.intensity = lightsOn ? 1.5 : 0;
+            // Ẩn/Hiện cone ánh sáng
+            coneLeft.visible = lightsOn;
+            coneRight.visible = lightsOn;
+        }
+
+        function TurnOnOffSun() {
+            sunon = !sunon; // Chuyển trạng thái bật/tắt ánh sáng
+
+            // Nếu bật ánh sáng
+            if (sunon) {
+                ambientLight.intensity = 0.6; // Bật ánh sáng môi trường
+                directionalLight.intensity = 0.8; // Bật ánh sáng hướng
+            } else {
+                ambientLight.intensity = 0; // Tắt ánh sáng môi trường
+                directionalLight.intensity = 0; // Tắt ánh sáng hướng
+            }
         }
 
         // Khởi động ứng dụng
