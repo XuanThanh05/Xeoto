@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <title>Mô hình xe 3D</title>
     <style>
         body {
@@ -47,37 +48,73 @@
             color: white;
             font-size: 14px;
         }
+        #status {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 10px;
+            color: white;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
     <div id="container">
         <div id="controls">
             <h3>Điều khiển xe</h3>
-            <button onclick="toggleDoorUpperLeft()">Mở/Đóng cửa xe trên trái</button>
+            <!-- <button onclick="toggleDoorUpperLeft()">Mở/Đóng cửa xe trên trái</button>
             <button onclick="toggleDoorUpperRight()">Mở/Đóng cửa xe trên phải</button>
             <button onclick="toggleDoorLowerLeft()">Mở/Đóng cửa xe dưới trái</button>
-            <button onclick="toggleDoorLowerRight()">Mở/Đóng cửa xe dưới phải</button>
-            <button onclick="TurnOnOffLight()">Bật/tắt đèn</button>
-            <button onclick="TurnOnOffSun()">Bật/tắt Ánh sáng</button>
+            <button onclick="toggleDoorLowerRight()">Mở/Đóng cửa xe dưới phải</button> -->
+            <button onclick="toggleAllDoors()">Mở/Đóng tất cả cửa</button>
+            <button onclick="TurnOnOffLight()">Bật/tắt đèn xe</button>
+            <button onclick="TurnOnOffSun()">Bật/tắt Ánh sáng mặt trời</button>
 
             <button onclick="changeView()">Đổi góc nhìn</button>
         </div>
         <div id="info">
             <p>Kéo chuột để xoay | Cuộn chuột để zoom </p>
         </div>
+        <div id="status">
+            <p><strong>Trạng thái xe:</strong></p>
+            <p>Vô lăng: <span id="steeringAngle">0</span></p>
+            <p>Vận tốc: <span id="velocity">0</span></p>
+            <p>Tiến: <span id="forward">false</span> | Lùi: <span id="backward">false</span></p>
+            <p>Rẽ trái: <span id="left">false</span> | Rẽ phải: <span id="right">false</span></p>
+        </div>
+
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
         let scene, camera, renderer, car;
-        let roofOpen = false, doorsOpen = false;
+        let doorsOpen = false;
         let mouseX = 0, mouseY = 0;
         let isMouseDown = false;
+
         // Biến toàn cục theo dõi trạng thái bật/tắt ánh sáng
         let sunon = true; // Đầu tiên ánh sáng bật
         let ambientLight, directionalLight; 
         //góc nhìn
         let isThirdPerson = true;
+        //khác
+        let steeringGroup;
+        // thông số liên quan đến điều khiển xe
+        const maxSteeringAngle = THREE.MathUtils.degToRad(120); // +/- 120 độ
+        let steeringAngle = 0; // góc vô lăng hiện tại
+        let velocity = 0;
+        const maxSpeed = 0.3;
+        const acceleration = 0.002;
+        const deceleration = 0.001;
+        let moveForward = false;
+        let moveBackward = false;
+        let turnLeft = false;
+        let turnRight = false;
+        let wheelRotation = 0; // tổng số vòng quay của bánh (tích lũy)
+
 
 
         function init() {
@@ -109,7 +146,7 @@
             scene.add(directionalLight);
 
             // Tạo sàn
-            const floorGeometry = new THREE.PlaneGeometry(50, 50);
+            const floorGeometry = new THREE.PlaneGeometry(200, 200);
             const floorMaterial = new THREE.MeshLambertMaterial({ color: 0x808080 });
             const floor = new THREE.Mesh(floorGeometry, floorMaterial);
             floor.rotation.x = -Math.PI / 2;
@@ -129,7 +166,7 @@
             // const helperRight = new THREE.SpotLightHelper(frontLightRight);
             // scene.add(helperLeft);
             // scene.add(helperRight);
-            
+
             // const pointLightHelper = new THREE.PointLightHelper(mornitorLight, 1); // 1 là kích thước sphere
             // scene.add(pointLightHelper);
             // Thêm event listeners
@@ -168,6 +205,20 @@
             headcabin.castShadow = true;
             headcabin.receiveShadow = true;
             car.add(headcabin);
+            // ====== Tạo gương chiếu hậu trái ======
+            const mirrorGeometry = new THREE.BoxGeometry(0.6, 0.3, 0.1);
+            const mirrorMaterial = new THREE.MeshPhongMaterial({ color: 0x333333 });
+            const leftMirror = new THREE.Mesh(mirrorGeometry, mirrorMaterial);
+            leftMirror.position.set(2.8, 2.3, 3);  // bên trái đầu xe
+            leftMirror.castShadow = true;
+            leftMirror.receiveShadow = true;
+            car.add(leftMirror);
+            // ====== Tạo gương chiếu hậu phải ======
+            const rightMirror = new THREE.Mesh(mirrorGeometry, mirrorMaterial);
+            rightMirror.position.set(-2.8, 2.3, 3);  // bên phải đầu xe
+            rightMirror.castShadow = true;
+            rightMirror.receiveShadow = true;
+            car.add(rightMirror);
             // Tạo tailcabin (phần đuôi xe)
             const tailcabin = new THREE.Mesh(cabinshape, bodyMaterial);
             tailcabin.position.set(0, 1.7, -4);
@@ -181,9 +232,6 @@
 
             // Tạo bánh xe
             createWheels();
-
-            // Tạo gương
-            createMirrors();
 
             // Tạo đèn pha
             createHeadlights();
@@ -205,79 +253,79 @@
 
              //thanh đuôi xe
         }
+        let leftUpperDoorGroup, rightUpperDoorGroup;
+        let leftLowerDoorGroup, rightLowerDoorGroup;
+
         function createDoors() {
             const doorGroup = new THREE.Group();
-
-            // Vật liệu phần thân cửa
             const doorMaterial = new THREE.MeshPhongMaterial({ color: 0x0066cc });
             const thanhdoorMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff });
-
-            // // Vật liệu phần kính cửa (trong suốt nhẹ)
-            // const glassMaterial = new THREE.MeshPhongMaterial({
-            //     color: 0x99ccff,
-            //     transparent: true,
-            //     opacity: 0.2
-            // });
-
-            // Kích thước phần dưới và phần trên
-            const lowerDoorGeometry = new THREE.BoxGeometry(0.1, 1.5, 2.4); // thân dưới
-            // const upperDoorGeometry = new THREE.BoxGeometry(0.1, 1.3, 1.6); // kính trên
-            const lowerDoorGeometry2 = new THREE.BoxGeometry(0.1, 1.5, 2.4);
+            const upperDoorGeometry = new THREE.BoxGeometry(0.1, 1.5, 2.4);
             const thanhdoorGeometry = new THREE.BoxGeometry(0.1, 1.5, 0.1);
-            // === Cửa trái trên ===
-            // Thân dưới
+            const lowerDoorGeometry = new THREE.BoxGeometry(0.1, 1.5, 2.4);
+            const handleGeometry = new THREE.BoxGeometry(0.05, 0.2, 0.4);
+            const handleMaterial = new THREE.MeshPhongMaterial({ color: 0x000000 });
+
+
+            // ======== Cửa trên trái ========
+            leftUpperDoorGroup = new THREE.Group();
+            const leftUpperDoor = new THREE.Mesh(upperDoorGeometry, doorMaterial);
+            leftUpperDoor.position.set(0, 0, -1.25); // dịch ra khỏi bản lề
+            //trục cửa
+            const thanhleftUpperDoor = new THREE.Mesh(thanhdoorGeometry, thanhdoorMaterial);
+            thanhleftUpperDoor.position.set(0, 0, 0); // bản lề ở phía ngoài
+            //tay nắm cửa
+            const leftUpperHandle = new THREE.Mesh(handleGeometry, handleMaterial);
+            leftUpperHandle.position.set(0.1, 0.5, -0.8); // đặt trên cửa
+            leftUpperDoor.add(leftUpperHandle);
+            leftUpperDoorGroup.add(thanhleftUpperDoor, leftUpperDoor);
+            leftUpperDoorGroup.position.set(2.4, 1.75, 2.75);
+            doorGroup.add(leftUpperDoorGroup);
+
+            // ======== Cửa trên phải ========
+            rightUpperDoorGroup = new THREE.Group();
+            const rightUpperDoor = new THREE.Mesh(upperDoorGeometry, doorMaterial);
+            rightUpperDoor.position.set(0, 0, -1.25);
+            const thanhrightUpperDoor = new THREE.Mesh(thanhdoorGeometry, thanhdoorMaterial);
+            thanhrightUpperDoor.position.set(0, 0, 0);
+            const rightUpperHandle = new THREE.Mesh(handleGeometry, handleMaterial);
+            rightUpperHandle.position.set(-0.1, 0.5, -0.8);
+            rightUpperDoor.add(rightUpperHandle);
+            rightUpperDoorGroup.add(thanhrightUpperDoor, rightUpperDoor);
+            rightUpperDoorGroup.position.set(-2.4, 1.75, 2.75);
+            doorGroup.add(rightUpperDoorGroup);
+
+            // ======== Cửa dưới trái ========
+            leftLowerDoorGroup = new THREE.Group();
             const leftLowerDoor = new THREE.Mesh(lowerDoorGeometry, doorMaterial);
-            leftLowerDoor.position.set(-2.4, 1.75, 1.5);
-            leftLowerDoor.castShadow = true;
+            leftLowerDoor.position.set(0, 0, -1.25);
             const thanhleftLowerDoor = new THREE.Mesh(thanhdoorGeometry, thanhdoorMaterial);
-            thanhleftLowerDoor.position.set(-2.4, 1.75, 2.75);
-            doorGroup.add(leftLowerDoor,thanhleftLowerDoor);
+            thanhleftLowerDoor.position.set(0, 0, 0);
+            const leftLowerHandle = new THREE.Mesh(handleGeometry, handleMaterial);
+            leftLowerHandle.position.set(0.1, 0.5, -0.8);
+            leftLowerDoor.add(leftLowerHandle);
+            leftLowerDoorGroup.add(thanhleftLowerDoor, leftLowerDoor);
+            leftLowerDoorGroup.position.set(2.4, 1.75, 0.25);
+            doorGroup.add(leftLowerDoorGroup);
 
-            // // Kính trên
-            // const leftUpperDoor = new THREE.Mesh(upperDoorGeometry, glassMaterial);
-            // leftUpperDoor.position.set(-2.4, 3.15, 1.1);
-            // doorGroup.add(leftUpperDoor);
-
-            // === Cửa phải trên===
+            // ======== Cửa dưới phải ========
+            rightLowerDoorGroup = new THREE.Group();
             const rightLowerDoor = new THREE.Mesh(lowerDoorGeometry, doorMaterial);
-            rightLowerDoor.position.set(2.4, 1.75,1.5);
-            rightLowerDoor.castShadow = true;
+            rightLowerDoor.position.set(0, 0, -1.25);
             const thanhrightLowerDoor = new THREE.Mesh(thanhdoorGeometry, thanhdoorMaterial);
-            thanhrightLowerDoor.position.set(2.4, 1.75, 2.75);
-            doorGroup.add(rightLowerDoor,thanhrightLowerDoor);
+            thanhrightLowerDoor.position.set(0, 0, 0);
+            const rightLowerHandle = new THREE.Mesh(handleGeometry, handleMaterial);
+            rightLowerHandle.position.set(-0.1, 0.5, -0.8);
+            rightLowerDoor.add(rightLowerHandle);
+            rightLowerDoorGroup.add(thanhrightLowerDoor, rightLowerDoor);
+            rightLowerDoorGroup.position.set(-2.4, 1.75, 0.25);
+            doorGroup.add(rightLowerDoorGroup);
 
-            // const rightUpperDoor = new THREE.Mesh(upperDoorGeometry, glassMaterial);
-            // rightUpperDoor.position.set(2.4, 3.15, 1.1);
-            // doorGroup.add(rightUpperDoor);
-            // === Cửa trái dưới ===
-            // Thân dưới
-            const leftLowerDoor2 = new THREE.Mesh(lowerDoorGeometry2, doorMaterial);
-            leftLowerDoor2.position.set(-2.4, 1.75, -1.0);
-            leftLowerDoor2.castShadow = true;
-            const thanhleft2LowerDoor = new THREE.Mesh(thanhdoorGeometry, thanhdoorMaterial);
-            thanhleft2LowerDoor.position.set(-2.4, 1.75, 0.25);
-            doorGroup.add(leftLowerDoor2,thanhleft2LowerDoor);
-
-            // // Kính trên
-            // const leftUpperDoor2 = new THREE.Mesh(upperDoorGeometry, glassMaterial);
-            // leftUpperDoor2.position.set(-2.4, 3.15, -1.1);
-            // doorGroup.add(leftUpperDoor2);
-
-            // === Cửa phải dưới===
-            const rightLowerDoor2 = new THREE.Mesh(lowerDoorGeometry2, doorMaterial);
-            rightLowerDoor2.position.set(2.4, 1.75, -1.0);
-            rightLowerDoor2.castShadow = true;
-            const thanhright2LowerDoor = new THREE.Mesh(thanhdoorGeometry, thanhdoorMaterial);
-            thanhright2LowerDoor.position.set(2.4, 1.75, 0.25);
-            doorGroup.add(rightLowerDoor2,thanhright2LowerDoor);
-
-            // const rightUpperDoor2 = new THREE.Mesh(upperDoorGeometry, glassMaterial);
-            // rightUpperDoor2.position.set(2.4, 3.15, -1.1);
-            // doorGroup.add(rightUpperDoor2);
-
-            car.add(doorGroup); // hoặc scene.add nếu muốn tách riêng
+            car.add(doorGroup);
         }
 
+    let frontWheels = []; // [{ pivot, wheelGroup }]
+    let rearWheels = [];  // [wheelGroup]
 
     function createWheels() {
         const wheelGeometry = new THREE.CylinderGeometry(1, 1, 0.3, 16);
@@ -288,53 +336,69 @@
         const barMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff });
 
         const wheelPositions = [
-            { x: -2.7, z: 3.8 },   // front-right
-            { x: 2.7, z: 3.8 },    // front-left
-            { x: -2.7, z: -3.2 },  // rear-right
-            { x: 2.7, z: -3.2 }    // rear-left
+            { x: -2.7, z: 3.8, isFront: true },   // front-right
+            { x:  2.7, z: 3.8, isFront: true },   // front-left
+            { x: -2.7, z: -3.2, isFront: false }, // rear-right
+            { x:  2.7, z: -3.2, isFront: false }  // rear-left
         ];
 
         wheelPositions.forEach(pos => {
-                    // Tạo nhóm bánh xe
-                    const wheelGroup = new THREE.Group();
+            if (pos.isFront) {
+                // --- Pivot: quay theo góc lái ---
+                const pivot = new THREE.Object3D();
+                pivot.position.set(pos.x, 1, pos.z);
+                car.add(pivot);
 
-                    // Bánh xe tròn
-                    const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
-                    wheel.rotation.z = Math.PI / 2;
-                    wheel.castShadow = true;
-                    wheel.receiveShadow = true;
-                    wheelGroup.add(wheel);
+                // --- Wheel mesh (quay lăn) ---
+                const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+                wheel.rotation.z = Math.PI / 2;
+                wheel.castShadow = true;
+                wheel.receiveShadow = true;
 
-                    // Thanh ngang (dài theo Y)
-                    const bar1 = new THREE.Mesh(barGeometry1, barMaterial);
-                    bar1.castShadow = true;
-                    bar1.receiveShadow = true;
-                    wheelGroup.add(bar1);
+                // --- Thanh gắn bánh xe ---
+                const bar1 = new THREE.Mesh(barGeometry1, barMaterial);
+                const bar2 = new THREE.Mesh(barGeometry2, barMaterial);
+                bar1.castShadow = bar2.castShadow = true;
+                bar1.receiveShadow = bar2.receiveShadow = true;
 
-                    // Thanh dọc (dài theo Z)
-                    const bar2 = new THREE.Mesh(barGeometry2, barMaterial);
-                    bar2.castShadow = true;
-                    bar2.receiveShadow = true;
-                    wheelGroup.add(bar2);
+                const wheelGroup = new THREE.Group();
+                wheelGroup.add(wheel);
+                wheelGroup.add(bar1);
+                wheelGroup.add(bar2);
 
-                    // Đặt vị trí cho nhóm bánh xe
-                    wheelGroup.position.set(pos.x, 1, pos.z);
+                pivot.add(wheelGroup); // Gắn group bánh xe vào pivot
 
-                    // Thêm nhóm vào xe
-                    car.add(wheelGroup);
-                });
+                // Lưu để điều khiển sau
+                frontWheels.push({ pivot, wheelGroup });
+
+            } else {
+                // --- Bánh sau không cần pivot ---
+                const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+                wheel.rotation.z = Math.PI / 2;
+                wheel.position.set(0, 0, 0);
+                wheel.castShadow = true;
+                wheel.receiveShadow = true;
+
+                // --- Thanh gắn bánh xe ---
+                const bar1 = new THREE.Mesh(barGeometry1, barMaterial);
+                const bar2 = new THREE.Mesh(barGeometry2, barMaterial);
+                bar1.castShadow = bar2.castShadow = true;
+                bar1.receiveShadow = bar2.receiveShadow = true;
+
+                const wheelGroup = new THREE.Group();
+                wheelGroup.add(wheel);
+                wheelGroup.add(bar1);
+                wheelGroup.add(bar2);
+                wheelGroup.position.set(pos.x, 1, pos.z);
+
+                car.add(wheelGroup);
+
+                // Lưu để quay bánh
+                rearWheels.push(wheelGroup);
+            }
+        });
     }
 
-
-    function createMirrors() {
-
-            // Gương trái
-
-            // Gương phải
-
-            // Gương chiếu hậu
-
-    }
     function createVolumetricBeam(x, y, z, color = 0xffffcc) {
         const coneGeometry = new THREE.ConeGeometry(7, 16, 64, 1, true); // hình nón mở
         const coneMaterial = new THREE.MeshBasicMaterial({
@@ -370,7 +434,12 @@
         //vật cản phía trước
         const vatcan = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 0.1), headlightMaterial);
         vatcan.position.set(0, 0, 20);
+        vatcan.receiveShadow = true;
         scene.add(vatcan);
+        const vatcan2 = new THREE.Mesh(new THREE.BoxGeometry(5, 5, 0.1), headlightMaterial);
+        vatcan2.position.set(0, 0, 15);
+        vatcan2.castShadow = true;
+        scene.add(vatcan2);
         // === Đèn pha (phía trước) ===
         const headlightLeft = new THREE.Mesh(headlightGeometry, headlightMaterial);
         headlightLeft.position.set(-1.2, 1.5, 6.4);
@@ -396,7 +465,7 @@
         car.add(frontLightRight.target); 
         frontLightRight.castShadow = true;
         frontLightRight.target.updateMatrixWorld();
-        // Thêm đèn phía trước phát sáng
+        // Thêm đèn của oto phía trước phát sáng
         frontPointLightLeft = new THREE.PointLight(0xffffcc, 0, 5);
         frontPointLightLeft.position.set(-1.2, 1.5, 6.5);
         car.add(frontPointLightLeft);
@@ -471,7 +540,7 @@
     });
 
         // Vô lăng
-        const steeringGroup = new THREE.Group();
+        steeringGroup = new THREE.Group();
         const darkMaterial = new THREE.MeshPhongMaterial({ color: 0x333333 });
         const whiteMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff });
 
@@ -490,14 +559,14 @@
         // 3. 3 thanh nan nối từ tâm ra ngoài (dạng dấu sao)
         const spoke1 = new THREE.Mesh(
             new THREE.BoxGeometry(0.5, 0.05, 0.05),
-            new THREE.MeshPhongMaterial({ color: 0xff0000 }) // đỏ
+            new THREE.MeshPhongMaterial({ color: 0x00ff00 }) // xanh lá
         );
-        spoke1.position.set(Math.cos(0) * 0.25, 0.5, Math.sin(0) * 0.25); // nửa chiều dài
-        spoke1.rotation.y = 0;
+        spoke1.position.set(Math.cos((30 * Math.PI) / 180) * 0.25, 0.5, Math.sin((30 * Math.PI) / 180) * 0.25); // nửa chiều dài
+        spoke1.rotation.y = -(30 * Math.PI) / 180;
         steeringGroup.add(spoke1);
 
         // Thanh 2 – hướng 120 độ
-        const angle2 = (120 * Math.PI) / 180;
+        const angle2 = (150 * Math.PI) / 180;
         const spoke2 = new THREE.Mesh(
             new THREE.BoxGeometry(0.5, 0.05, 0.05),
             new THREE.MeshPhongMaterial({ color: 0x00ff00 }) // xanh lá
@@ -507,7 +576,7 @@
         steeringGroup.add(spoke2);
 
         // Thanh 3 – hướng 240 độ
-        const angle3 = (240 * Math.PI) / 180;
+        const angle3 = (270 * Math.PI) / 180;
         const spoke3 = new THREE.Mesh(
             new THREE.BoxGeometry(0.5, 0.05, 0.05),
             new THREE.MeshPhongMaterial({ color: 0xffffff }) // xanh dương
@@ -515,6 +584,7 @@
         spoke3.position.set(Math.cos(angle3) * 0.25, 0.5, Math.sin(angle3) * 0.25);
         spoke3.rotation.y = -angle3;
         steeringGroup.add(spoke3);
+
 
         // 4. Vành ngoài (vòng tròn rỗng)
         const torusGeometry = new THREE.TorusGeometry(0.5, 0.05, 16, 100);
@@ -567,9 +637,6 @@
             const wsGeometry = new THREE.BoxGeometry(4.5, 2, 0.1); // thân dưới
             const k1Geometry = new THREE.BoxGeometry(0.1, 2, 0.1); // thân dưới
 
-
-
-
             const windshield = new THREE.Mesh(wsGeometry, glassMaterial);
             windshield.position.set(0, 0, 0);
             windshield.castShadow = true;
@@ -620,6 +687,22 @@
             renderer.domElement.addEventListener('mouseup', onMouseUp);
             renderer.domElement.addEventListener('wheel', onMouseWheel);
             window.addEventListener('resize', onWindowResize);
+            document.addEventListener('keydown', (event) => {
+                switch (event.key) {
+                    case 'w': moveForward = true; break;
+                    case 's': moveBackward = true; break;
+                    case 'a': turnLeft = true; break;
+                    case 'd': turnRight = true; break;
+                }
+                });
+            document.addEventListener('keyup', (event) => {
+                switch (event.key) {
+                    case 'w': moveForward = false; break;
+                    case 's': moveBackward = false; break;
+                    case 'a': turnLeft = false; break;
+                    case 'd': turnRight = false; break;
+                }
+            });
         }
 
         function onMouseDown(event) {
@@ -669,10 +752,12 @@
         }
 
         function animate() {
-            requestAnimationFrame(animate);
-            
-            
+            handleSteering(); // hàm nhận input từ A/D để gọi updateSteering()
+            quayVoLang();// quay vô lăng
+            updateMovement();      // xử lý hướng và tốc độ
+            updateStatusDisplay();
             renderer.render(scene, camera);
+            requestAnimationFrame(animate);
         }
         function TurnOnOffLight() {
             lightsOn = !lightsOn;
@@ -702,6 +787,100 @@
                 directionalLight.intensity = 0; // Tắt ánh sáng hướng
             }
         }
+
+        function toggleAllDoors() {
+            const angle = THREE.MathUtils.degToRad(60);
+            if (!doorsOpen) {
+                gsap.to(leftUpperDoorGroup.rotation, { y: -angle, duration: 1 });
+                gsap.to(rightUpperDoorGroup.rotation, { y: angle, duration: 1 });
+                gsap.to(leftLowerDoorGroup.rotation, { y: -angle, duration: 1 });
+                gsap.to(rightLowerDoorGroup.rotation, { y: angle, duration: 1 });
+            } else {
+                gsap.to(leftUpperDoorGroup.rotation, { y: 0, duration: 1 });
+                gsap.to(rightUpperDoorGroup.rotation, { y: 0, duration: 1 });
+                gsap.to(leftLowerDoorGroup.rotation, { y: 0, duration: 1 });
+                gsap.to(rightLowerDoorGroup.rotation, { y: 0, duration: 1 });
+            }
+            doorsOpen = !doorsOpen;
+        }
+        function quayVoLang() {
+            steeringGroup.rotation.y = steeringAngle; 
+            // Đặt dấu '-' nếu cần quay ngược để phù hợp thực tế
+        }
+        function handleSteering() {
+            const steerSpeed = 0.02;
+            if (turnLeft && !turnRight) {
+                updateSteering(steerSpeed);
+            } else if (turnRight && !turnLeft) {
+                updateSteering(-steerSpeed);
+            }
+            // Nếu cả hai cùng true hoặc đều false → không thay đổi gì
+        }
+        function updateSteering(deltaAngle) {
+            steeringAngle = THREE.MathUtils.clamp(
+                steeringAngle + deltaAngle,
+                -maxSteeringAngle,
+                maxSteeringAngle
+            );
+
+            // cập nhật bánh trước quay theo 1/3 góc vô lăng
+            const wheelAngle = steeringAngle / 3;
+            frontWheels.forEach(({ pivot }) => {
+                pivot.rotation.y = wheelAngle; // Bẻ trái/phải
+            });
+
+        }
+        function updateMovement() {
+            // Tăng tốc khi nhấn W hoặc S
+            if (moveForward) {
+                velocity = Math.min(velocity + acceleration, maxSpeed);
+            } else if (moveBackward) {
+                velocity = Math.max(velocity - acceleration, -maxSpeed / 2); // Lùi chậm hơn tiến
+            } else {
+                // Nếu không nhấn gì, tự giảm tốc
+                if (velocity > 0) {
+                    velocity = Math.max(velocity - deceleration, 0);
+                } else if (velocity < 0) {
+                    velocity = Math.min(velocity + deceleration, 0);
+                }
+            }
+
+            // Lấy hướng di chuyển dựa trên góc vô lăng
+            const wheelDirection = new THREE.Vector3(0, 0, 1);
+            const wheelAngle = steeringAngle / 3;
+            wheelDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), car.rotation.y + wheelAngle);
+            wheelDirection.normalize();
+
+            // Cập nhật vị trí xe (có thể tiến hoặc lùi)
+            car.position.add(wheelDirection.multiplyScalar(velocity));
+
+            // Cập nhật hướng quay (chỉ xoay khi đang di chuyển)
+            if (velocity !== 0) {
+                const direction = velocity > 0 ? 1 : -1;
+                car.rotation.y += direction * Math.tan(wheelAngle) * Math.abs(velocity) * 0.05;
+            }
+            //  Tính khoảng cách di chuyển (giả lập quay bánh xe)
+            const distance = Math.abs(velocity); // đơn vị di chuyển
+            const wheelCircumference = 2 * Math.PI * 1; // radius = 1
+            wheelRotation += distance / wheelCircumference * 2 * Math.PI;
+
+            frontWheels.forEach(({ wheelGroup }) => {
+                wheelGroup.rotation.x = wheelRotation;
+            });
+            rearWheels.forEach(wheelGroup => {
+                wheelGroup.rotation.x = wheelRotation;
+            });
+
+        }
+        function updateStatusDisplay() {
+            document.getElementById("steeringAngle").textContent = steeringAngle.toFixed(2);
+            document.getElementById("velocity").textContent = velocity.toFixed(2);
+            document.getElementById("forward").textContent = moveForward;
+            document.getElementById("backward").textContent = moveBackward;
+            document.getElementById("left").textContent = turnLeft;
+            document.getElementById("right").textContent = turnRight;
+        }
+
 
         // Khởi động ứng dụng
         init();
