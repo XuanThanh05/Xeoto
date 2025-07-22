@@ -65,10 +65,10 @@
     <div id="container">
         <div id="controls">
             <h3>Điều khiển xe</h3>
-            <!-- <button onclick="toggleDoorUpperLeft()">Mở/Đóng cửa xe trên trái</button>
+            <button onclick="toggleDoorUpperLeft()">Mở/Đóng cửa xe trên trái</button>
             <button onclick="toggleDoorUpperRight()">Mở/Đóng cửa xe trên phải</button>
             <button onclick="toggleDoorLowerLeft()">Mở/Đóng cửa xe dưới trái</button>
-            <button onclick="toggleDoorLowerRight()">Mở/Đóng cửa xe dưới phải</button> -->
+            <button onclick="toggleDoorLowerRight()">Mở/Đóng cửa xe dưới phải</button>
             <button onclick="toggleAllDoors()">Mở/Đóng tất cả cửa</button>
             <button onclick="TurnOnOffLight()">Bật/tắt đèn xe</button>
             <button onclick="TurnOnOffSun()">Bật/tắt Ánh sáng mặt trời</button>
@@ -91,7 +91,10 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
         let scene, camera, renderer, car;
-        let doorsOpen = false;
+        let doorUpperLeftOpen = false;
+        let doorUpperRightOpen = false;
+        let doorLowerLeftOpen = false;
+        let doorLowerRightOpen = false;
         let mouseX = 0, mouseY = 0;
         let isMouseDown = false;
 
@@ -102,6 +105,8 @@
         let isThirdPerson = true;
         //khác
         let steeringGroup;
+        let helperLeft;
+        let helperRight;
         // thông số liên quan đến điều khiển xe
         const maxSteeringAngle = THREE.MathUtils.degToRad(120); // +/- 120 độ
         let steeringAngle = 0; // góc vô lăng hiện tại
@@ -114,7 +119,7 @@
         let turnLeft = false;
         let turnRight = false;
         let wheelRotation = 0; // tổng số vòng quay của bánh (tích lũy)
-
+        
 
 
         function init() {
@@ -162,13 +167,13 @@
             const axesHelper = new THREE.AxesHelper(5);
             scene.add(axesHelper);
 
-            // const helperLeft = new THREE.SpotLightHelper(frontLightLeft);
-            // const helperRight = new THREE.SpotLightHelper(frontLightRight);
-            // scene.add(helperLeft);
-            // scene.add(helperRight);
+            helperLeft = new THREE.SpotLightHelper(frontLightLeft);
+            helperRight = new THREE.SpotLightHelper(frontLightRight);
+            scene.add(helperLeft);
+            scene.add(helperRight);
 
-            // const pointLightHelper = new THREE.PointLightHelper(mornitorLight, 1); // 1 là kích thước sphere
-            // scene.add(pointLightHelper);
+            const pointLightHelper = new THREE.PointLightHelper(mornitorLight, 1); // 1 là kích thước sphere
+            scene.add(pointLightHelper);
             // Thêm event listeners
             addEventListeners();
 
@@ -226,6 +231,7 @@
             tailcabin.receiveShadow = true;
             car.add(tailcabin);
             // Tạo trần xe (có thể mở)
+            // test();
             createkhungxe();
             // Tạo cửa xe
             createDoors();
@@ -244,7 +250,32 @@
 
             createLicencePlate();
             scene.add(car);
+            // car.position.x=10;
         }
+//         function test(){
+            
+
+//             const coneGeo = new THREE.ConeGeometry(1, 2, 32);
+//             const coneMat = new THREE.MeshNormalMaterial();
+//             const cone = new THREE.Mesh(coneGeo, coneMat);
+//             cone.add(new THREE.AxesHelper(1));    
+//             cone.position.set(-1,2,0); // nửa chiều cao
+// // nửa chiều cao
+//             scene.add(cone);
+
+// const pivot = new THREE.Object3D();
+//             pivot.add(cone);
+//             pivot.position.set(0,1,0);
+//             // pivot.rotation.x = Math.PI / 4;
+//             scene.add(pivot);
+//             pivot.add(new THREE.AxesHelper(2.5));    // Trục local của pivot
+            
+            
+
+//             // // Xoay quanh đỉnh (pivot)
+            
+
+//         }
         function createkhungxe(){
              const khungxeGroup = new THREE.Group();
              //thanh chéo đầu xe
@@ -399,26 +430,8 @@
         });
     }
 
-    function createVolumetricBeam(x, y, z, color = 0xffffcc) {
-        const coneGeometry = new THREE.ConeGeometry(7, 16, 64, 1, true); // hình nón mở
-        const coneMaterial = new THREE.MeshBasicMaterial({
-            color: color,
-            transparent: true,
-            opacity: 0.2,
-            depthWrite: false,
-            side: THREE.DoubleSide,
-            blending: THREE.AdditiveBlending
-        });
 
-        const cone = new THREE.Mesh(coneGeometry, coneMaterial);
-        cone.position.set(x, y, z ); // dịch ra trước mặt
-        cone.rotation.x = -Math.PI / 2; // xoay theo trục Z
-
-        car.add(cone);  // hoặc scene.add nếu không gắn theo xe
-        return cone;
-    }
-
-    let frontLightLeft, frontLightRight, frontPointLightLeft, frontPointLightRight;
+    let frontLightLeft, frontLightRight, frontPointLightLeft, frontPointLightRight, trueLightLeftPivot, trueLightRightPivot;
     let rearLightLeft, rearLightRight;
     let lightsOn = false;
     let coneLeft, coneRight;
@@ -450,21 +463,36 @@
         car.add(headlightRight);
 
         // Thêm đèn thật (ánh sáng vàng)
-        frontLightLeft = new THREE.SpotLight(0xffffcc, 0, 15, Math.PI / 7, 0.3);
-        frontLightLeft.position.set(-1.2, 1.5, 6.0);
-        frontLightLeft.target.position.set(-1.2, 1.5, 20); // chiếu xa hơn
+        frontLightLeft = new THREE.SpotLight(0xffffcc, 0, 16, Math.PI / 7, 0.3);
+        frontLightLeft.position.set(0, 0, 0);
+        frontLightLeft.target.position.set(0, 0, 16); // chiếu xa hơn
         car.add(frontLightLeft);
         car.add(frontLightLeft.target);
         frontLightLeft.castShadow = true;
         frontLightLeft.target.updateMatrixWorld();
 
-        frontLightRight = new THREE.SpotLight(0xffffcc, 0, 15, Math.PI / 7, 0.3);
-        frontLightRight.position.set(1.2, 1.5, 6.0);
-        frontLightRight.target.position.set(1.2, 1.5, 20);
+        trueLightLeftPivot = new THREE.Object3D();
+        trueLightLeftPivot.position.set(0, 0, 0);
+        trueLightLeftPivot.add(frontLightLeft);
+        trueLightLeftPivot.add(frontLightLeft.target);
+        car.add(trueLightLeftPivot);
+        trueLightLeftPivot.position.set(-1.2, 1.5, 6.3); 
+
+        frontLightRight = new THREE.SpotLight(0xffffcc, 0, 16, Math.PI / 7, 0.3);
+        frontLightRight.position.set(0, 0, 0);
+        frontLightRight.target.position.set(0, 0, 16);
         car.add(frontLightRight);
         car.add(frontLightRight.target); 
         frontLightRight.castShadow = true;
         frontLightRight.target.updateMatrixWorld();
+
+        trueLightRightPivot = new THREE.Object3D();
+        trueLightRightPivot.position.set(0, 0, 0);
+        trueLightRightPivot.add(frontLightRight);
+        trueLightRightPivot.add(frontLightRight.target);
+        car.add(trueLightRightPivot);
+        trueLightRightPivot.position.set(1.2, 1.5, 6.3); 
+
         // Thêm đèn của oto phía trước phát sáng
         frontPointLightLeft = new THREE.PointLight(0xffffcc, 0, 5);
         frontPointLightLeft.position.set(-1.2, 1.5, 6.5);
@@ -503,6 +531,34 @@
         mornitorLight.position.set(-0.1, 2.3, 2.0);
         car.add(mornitorLight);
     }
+        function createVolumetricBeam(x, y, z) {
+        const coneGeometry = new THREE.ConeGeometry(7, 16, 64, 1, true); // height = 16
+        const coneMaterial = new THREE.MeshBasicMaterial({
+            color: 0xffffaa,
+            transparent: true,
+            opacity: 0.3,
+            side: THREE.DoubleSide,
+            depthWrite: false,
+        });
+
+        const cone = new THREE.Mesh(coneGeometry, coneMaterial);
+
+        // ✅ Dịch cone lên để đỉnh nằm tại gốc toạ độ
+        cone.position.z = 16 / 2;
+
+        // ✅ Gán hướng ban đầu quay lên Z+
+        cone.quaternion.setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
+
+        // ✅ Tạo pivot group tại đỉnh
+        const conePivot = new THREE.Object3D();
+        conePivot.position.set(x, y, z-6.8);
+        conePivot.add(cone);
+
+        car.add(conePivot);
+
+        return conePivot;  // Trả về pivot chứ không phải cone nữa!
+    }
+
 
 
 
@@ -756,6 +812,8 @@
             quayVoLang();// quay vô lăng
             updateMovement();      // xử lý hướng và tốc độ
             updateStatusDisplay();
+            helperLeft.update();   // cập nhật hướng ánh sáng
+            helperRight.update();
             renderer.render(scene, camera);
             requestAnimationFrame(animate);
         }
@@ -790,23 +848,73 @@
 
         function toggleAllDoors() {
             const angle = THREE.MathUtils.degToRad(60);
-            if (!doorsOpen) {
+            if (!doorUpperLeftOpen) {
                 gsap.to(leftUpperDoorGroup.rotation, { y: -angle, duration: 1 });
-                gsap.to(rightUpperDoorGroup.rotation, { y: angle, duration: 1 });
-                gsap.to(leftLowerDoorGroup.rotation, { y: -angle, duration: 1 });
-                gsap.to(rightLowerDoorGroup.rotation, { y: angle, duration: 1 });
             } else {
                 gsap.to(leftUpperDoorGroup.rotation, { y: 0, duration: 1 });
+            }
+            doorUpperLeftOpen = !doorUpperLeftOpen;
+            if (!doorUpperRightOpen) {
+                gsap.to(rightUpperDoorGroup.rotation, { y: angle, duration: 1 });
+            } else {
                 gsap.to(rightUpperDoorGroup.rotation, { y: 0, duration: 1 });
+            }
+            doorUpperRightOpen = !doorUpperRightOpen;
+            if (!doorLowerLeftOpen) {
+                gsap.to(leftLowerDoorGroup.rotation, { y: -angle, duration: 1 });
+            } else {
                 gsap.to(leftLowerDoorGroup.rotation, { y: 0, duration: 1 });
+            }
+            doorLowerLeftOpen = !doorLowerLeftOpen;
+            if (!doorLowerRightOpen) {
+                gsap.to(rightLowerDoorGroup.rotation, { y: angle, duration: 1 });
+            } else {
                 gsap.to(rightLowerDoorGroup.rotation, { y: 0, duration: 1 });
             }
-            doorsOpen = !doorsOpen;
+            doorLowerRightOpen = !doorLowerRightOpen;
+        }
+        function toggleDoorUpperLeft() {
+            const angle = THREE.MathUtils.degToRad(60);
+            if (!doorUpperLeftOpen) {
+                gsap.to(leftUpperDoorGroup.rotation, { y: -angle, duration: 1 });
+            } else {
+                gsap.to(leftUpperDoorGroup.rotation, { y: 0, duration: 1 });
+            }
+            doorUpperLeftOpen = !doorUpperLeftOpen;
+        }
+        function toggleDoorUpperRight() {
+            const angle = THREE.MathUtils.degToRad(60);
+            if (!doorUpperRightOpen) {
+                gsap.to(rightUpperDoorGroup.rotation, { y: angle, duration: 1 });
+            } else {
+                gsap.to(rightUpperDoorGroup.rotation, { y: 0, duration: 1 });
+            }
+            doorUpperRightOpen = !doorUpperRightOpen;
+        }
+        function toggleDoorLowerLeft() {
+            const angle = THREE.MathUtils.degToRad(60);
+            if (!doorLowerLeftOpen) {
+                gsap.to(leftLowerDoorGroup.rotation, { y: -angle, duration: 1 });
+            } else {
+                gsap.to(leftLowerDoorGroup.rotation, { y: 0, duration: 1 });
+            }
+            doorLowerLeftOpen = !doorLowerLeftOpen;
+        }
+        function toggleDoorLowerRight() {
+            const angle = THREE.MathUtils.degToRad(60);
+            if (!doorLowerRightOpen) {
+                gsap.to(rightLowerDoorGroup.rotation, { y: angle, duration: 1 });
+            } else {
+                gsap.to(rightLowerDoorGroup.rotation, { y: 0, duration: 1 });
+            }
+            doorLowerRightOpen = !doorLowerRightOpen;
         }
         function quayVoLang() {
             steeringGroup.rotation.y = steeringAngle; 
             // Đặt dấu '-' nếu cần quay ngược để phù hợp thực tế
         }
+
+
         function handleSteering() {
             const steerSpeed = 0.02;
             if (turnLeft && !turnRight) {
@@ -828,6 +936,14 @@
             frontWheels.forEach(({ pivot }) => {
                 pivot.rotation.y = wheelAngle; // Bẻ trái/phải
             });
+            //quay đèn
+            trueLightLeftPivot.rotation.y=wheelAngle;
+            trueLightRightPivot.rotation.y=wheelAngle;
+
+            coneLeft.rotation.y = wheelAngle;
+            coneRight.rotation.y = wheelAngle;
+
+            
 
         }
         function updateMovement() {
@@ -860,7 +976,7 @@
                 car.rotation.y += direction * Math.tan(wheelAngle) * Math.abs(velocity) * 0.05;
             }
             //  Tính khoảng cách di chuyển (giả lập quay bánh xe)
-            const distance = Math.abs(velocity); // đơn vị di chuyển
+            const distance = velocity; // đơn vị di chuyển
             const wheelCircumference = 2 * Math.PI * 1; // radius = 1
             wheelRotation += distance / wheelCircumference * 2 * Math.PI;
 
